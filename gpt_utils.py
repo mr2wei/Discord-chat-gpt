@@ -1,5 +1,4 @@
 import openai
-from imgur_python import Imgur
 
 
 def get_gpt_response(messages):

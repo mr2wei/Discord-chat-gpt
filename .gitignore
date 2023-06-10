@@ -1,3 +1,4 @@
 .env
 __pycache__/
 guild_configurations.pkl
+.vscode/
