@@ -42,3 +42,4 @@ required packages
 ## Plans
 
 - potentially restrict usage of chat features to certain roles or admins
+- Giving it the ability to choose when it responds instead of responding to every message sent
