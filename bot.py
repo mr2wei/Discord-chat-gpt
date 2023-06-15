@@ -3,7 +3,8 @@ from dotenv import load_dotenv
 import os
 import pickle
 import openai
-import gpt_utils
+import openai_utils
+import tiktoken
 
 
 load_dotenv()
@@ -17,6 +18,8 @@ bot = discord.Bot(intents=intents)
 
 guild_configurations = {}
 
+ai = openai_utils.openai_utils()
+
 try:
     with open('guild_configurations.pkl', 'rb') as file:
         guild_configurations = pickle.load(file)
@@ -26,6 +29,12 @@ except FileNotFoundError:
 def save_guild_configurations():
     with open('guild_configurations.pkl', 'wb+') as file:
         pickle.dump(guild_configurations, file)
+
+encoding = tiktoken.encoding_for_model(ai.model)
+def num_tokens_from_string(string: str) -> int:
+    """Returns the number of tokens in a text string."""
+    num_tokens = len(encoding.encode(string))
+    return num_tokens
 
 @bot.event
 async def on_ready():
@@ -50,18 +59,29 @@ async def on_message(message):
     
     messages = []
 
+    # set guidance for ChatGPT
+    guidance = "If sending code, wrap code with triple backticks. To specify the language, include the language name after the first set of backticks. For example, to send python code, use ```python. If the conversation does not necessarily need a response (example: responding to interjections) or is part of a conversation that doesn't include you, respond with \"No response\"."
+
+    total_message_token = num_tokens_from_string(guidance) + num_tokens_from_string(f"user {message.author.name} wrote: {message.content}")
+
     # get messages from channel
     async for channel_message in message.channel.history(limit = 40):
         if channel_message.content == '':
             continue
-         
+        message_token = num_tokens_from_string(channel_message.content)
         if channel_message.author == bot.user:
+            if (total_message_token + message_token) > 4097 - total_message_token:
+                break
             messages.insert(0, {"role": "assistant", "content": channel_message.content})
+            total_message_token += message_token
         else:
+            if (total_message_token + message_token) > 4097 - total_message_token:
+                break
             messages.insert(0, {"role": "user", "content": channel_message.content})
+            total_message_token += message_token
 
-    # set guidance for ChatGPT
-    guidance = "If sending code, wrap code with triple backticks. To specify the language, include the language name after the first set of backticks. For example, to send python code, use ```python."
+
+    
     messages.insert(0,{"role": "system", "content" : guidance})
 
     # add user message
@@ -70,7 +90,7 @@ async def on_message(message):
     # get response from GPT
     async with message.channel.typing():
         try:
-            response = gpt_utils.get_gpt_response(messages)
+            response = ai.get_gpt_response(messages)
         except openai.error.OpenAIError as e:
             print(str(e))
             await message.channel.send('An error occured, please try again later')
@@ -168,7 +188,7 @@ async def create_image(ctx, prompt: str):
 
     await ctx.defer()
     try:
-        response = gpt_utils.create_image_with_prompt(prompt)
+        response = ai.create_image_with_prompt(prompt)
     except openai.error.OpenAIError as e:
         print(str(e))
         await ctx.respond('An error occured, please try again later')
