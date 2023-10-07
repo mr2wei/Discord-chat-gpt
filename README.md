@@ -30,6 +30,8 @@ OPENAI_API_KEY = openai key
 required packages
 - py-cord
 - openai
+- python-dotenv
+- tiktoken
 
 *note: py-cord and discord.py uses the same name space. I'm not sure what will happen if you use discord.py instead*
 
