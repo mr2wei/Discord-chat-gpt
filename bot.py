@@ -161,7 +161,7 @@ async def check_initialized(ctx):
 initialize = discord.SlashCommandGroup(
     "initialize",
     "Initializes the bot to a category",
-    guild_ids=["507778138374275072", "700194499309207632", "1041571606671147069"],
+    # guild_ids=["507778138374275072", "700194499309207632", "1041571606671147069"],
 )
 
 
@@ -202,7 +202,7 @@ async def initialize_bot(ctx):
 chats = discord.SlashCommandGroup(
     "chat",
     "Commands for managing chats",
-    guild_ids=["507778138374275072", "700194499309207632", "1041571606671147069"],
+    # guild_ids=["507778138374275072", "700194499309207632", "1041571606671147069"],
 )
 
 
@@ -306,7 +306,7 @@ async def here_chat(ctx, prompt: str):
 imaging = discord.SlashCommandGroup(
     "image",
     "Create or edit images using DALL-E",
-    guild_ids=["507778138374275072", "700194499309207632", "1041571606671147069"],
+    # guild_ids=["507778138374275072", "700194499309207632", "1041571606671147069"],
 )
 
 

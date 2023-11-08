@@ -2,7 +2,7 @@ import openai
 
 
 class openai_utils:
-    def __init__(self, model="gpt-3.5-turbo", image_size="512x512") -> None:
+    def __init__(self, model="gpt-4-1106-preview", image_size="512x512") -> None:
         self.model = model
         self.image_size = image_size
 
