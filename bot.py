@@ -48,16 +48,33 @@ def num_tokens_from_string(string: str) -> int:
 @bot.event
 async def on_ready():
     print(f"{bot.user} has connected to Discord!")
+    print(f"Using model {ai.get_model()}")
 
 
 @bot.event
 async def on_message(message):
+    global ai
+
     if message.author == bot.user:
         return
 
+    attachments = []
+    for attachment in message.attachments:
+        attachments.append({"type": attachment.content_type, "url": attachment.url})
+
     print(
-        f"message received: {message.content} by {message.author.name}, {message.channel.category_id}, {message.guild.id}"
+        f"""
+message
+content:{message.content}
+author: {message.author.name}
+category_id: {message.channel.category_id}
+guild_id: {message.guild.id}
+attachments: {attachments}
+"""
     )
+
+    if message.content == "" and len(message.attachments) == 0:
+        return
 
     if message.guild.id not in guild_configurations:
         await message.channel.send(
@@ -74,44 +91,110 @@ async def on_message(message):
     messages = []
 
     # set guidance for ChatGPT
-    guidance = 'If sending code, wrap code with triple backticks. To specify the language, include the language name after the first set of backticks. For example, to send python code, use ```python. If the conversation does not necessarily need a response (example: responding to interjections) or is part of a conversation that doesn\'t include you, respond with "No response".'
+    guidance = "If sending code, wrap code with triple backticks. To specify the language, include the language name after the first set of backticks. For example, to send python code, use ```python."
 
     total_message_token = num_tokens_from_string(guidance) + num_tokens_from_string(
         f"user {message.author.name} wrote: {message.content}"
     )
 
-    # get messages from channel
-    async for channel_message in message.channel.history(limit=40):
-        if channel_message.content == "":
-            continue
-        message_token = num_tokens_from_string(channel_message.content)
-        if channel_message.author == bot.user:
-            if (total_message_token + message_token) > 4097 - total_message_token:
-                break
-            messages.insert(
-                0, {"role": "assistant", "content": channel_message.content}
+    if ai.get_model() == "gpt-4-vision-preview":
+        supported_file_types = ["image/png", "image/jpeg", "image/gif", "image/webp"]
+        # get messages from channel
+        async for channel_message in message.channel.history(limit=40):
+            content = []
+            content.append(
+                {
+                    "type": "text",
+                    "text": channel_message.content,
+                }
             )
-            total_message_token += message_token
-        else:
-            if (total_message_token + message_token) > 4097 - total_message_token:
-                break
-            messages.insert(0, {"role": "user", "content": channel_message.content})
-            total_message_token += message_token
+            for attachment in channel_message.attachments:
+                if attachment.content_type in supported_file_types:
+                    content.append(
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": attachment.url, "detail": "low"},
+                        }
+                    )
 
-    messages.insert(0, {"role": "system", "content": guidance})
+            if channel_message.content == "" and len(content) == 1:
+                continue
 
-    # add user message
-    messages.append(
-        {
-            "role": "user",
-            "content": f"user {message.author.name} wrote: {message.content}",
-        }
-    )
+            message_token = num_tokens_from_string(channel_message.content)
+            if channel_message.author == bot.user:
+                if (total_message_token + message_token) > 4097 - total_message_token:
+                    break
+
+                messages.insert(0, {"role": "assistant", "content": content})
+                total_message_token += message_token
+            else:
+                if (total_message_token + message_token) > 4097 - total_message_token:
+                    break
+                messages.insert(0, {"role": "user", "content": content})
+                total_message_token += message_token
+
+        messages.insert(0, {"role": "system", "content": guidance})
+
+        content = []
+        content.append(
+            {
+                "type": "text",
+                "text": message.content,
+            }
+        )
+        for attachment in message.attachments:
+            if attachment.content_type in supported_file_types:
+                content.append(
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": attachment.url, "detail": "low"},
+                    }
+                )
+
+        # add user message
+        messages.append(
+            {
+                "role": "user",
+                "content": content,
+            }
+        )
+    else:
+        # get messages from channel
+        async for channel_message in message.channel.history(limit=40):
+            if channel_message.content == "":
+                continue
+            message_token = num_tokens_from_string(channel_message.content)
+            if channel_message.author == bot.user:
+                if (total_message_token + message_token) > 4097 - total_message_token:
+                    break
+                messages.insert(
+                    0, {"role": "assistant", "content": channel_message.content}
+                )
+                total_message_token += message_token
+            else:
+                if (total_message_token + message_token) > 4097 - total_message_token:
+                    break
+                messages.insert(
+                    0,
+                    {
+                        "role": "user",
+                        "content": f"user {channel_message.author.name} wrote: {channel_message.content}",
+                    },
+                )
+                total_message_token += message_token
+
+        messages.insert(0, {"role": "system", "content": guidance})
+
+        # add user message
+        messages.append(
+            {
+                "role": "user",
+                "content": f"user {message.author.name} wrote: {message.content}",
+            }
+        )
 
     # get response from GPT
     async with message.channel.typing():
-        global ai
-
         tries = 0
 
         while True:

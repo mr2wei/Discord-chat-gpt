@@ -2,3 +2,5 @@
 __pycache__/
 guild_configurations.pkl
 .vscode/
+test.py
+nohup.out

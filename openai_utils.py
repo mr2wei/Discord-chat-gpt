@@ -19,3 +19,6 @@ class openai_utils:
             size=self.image_size,
         )
         return response.data[0].url
+
+    def get_model(self):
+        return self.model
